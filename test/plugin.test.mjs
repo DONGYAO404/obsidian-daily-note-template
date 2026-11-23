@@ -74,7 +74,8 @@ await check("注册命令、图标和设置页", async () => {
 	assert.equal(plugin.getFolder(), "日记");
 	assert.equal(plugin.getDateFormat(), "YYYY-MM-DD");
 	assert.equal(plugin.sectionNames().todo, "To-do list");
-	assert.equal(plugin.sectionNames().mission, "Urgent mission");
+	assert.equal(plugin.sectionNames().mission, "Mission");
+	assert.equal(plugin.sectionNames().urgent, "Urgent mission");
 });
 
 await check("跟随核心日记插件与自定义路径", async () => {
@@ -166,6 +167,41 @@ await check("待办跟随上一篇日记，勾选被还原", async () => {
 	assert.ok(!tomorrow.__content.includes("作业B"), "已完成的紧急任务不应出现");
 });
 
+await check("Mission 与 Urgent mission 各自独立、规则相同", async () => {
+	const { app, plugin } = await setup();
+	const today = moment();
+	await app.vault.create(
+		`日记/${today.format("YYYY-MM-DD")}.md`,
+		[
+			"# To-do list",
+			"- [ ] 待办1",
+			"## Mission",
+			"- [ ] 任务A",
+			"- [x] 任务B",
+			"## Urgent mission",
+			"- [ ] 急A",
+			"- [x] 急B",
+			"",
+		].join("\n")
+	);
+
+	await plugin.openDailyNote(moment().add(1, "day"));
+	const tomorrow = app.vault.getAbstractFileByPath(`日记/${tomorrowKey()}.md`);
+	const content = tomorrow.__content;
+
+	assert.ok(content.includes("- [ ] 任务A"), content);
+	assert.ok(!content.includes("任务B"), "Mission 里已完成的应消失");
+	assert.ok(content.includes("- [ ] 急A"), content);
+	assert.ok(!content.includes("急B"), "Urgent 里已完成的应消失");
+
+	const afterMission = content.split("## Mission")[1] ?? "";
+	const missionBlock = afterMission.split("## Urgent mission")[0] ?? "";
+	const urgentBlock = content.split("## Urgent mission")[1] ?? "";
+	assert.ok(missionBlock.includes("任务A"));
+	assert.ok(!missionBlock.includes("急A"), "两栏不应串");
+	assert.ok(urgentBlock.includes("急A"));
+});
+
 await check("今天的日记改动后自动同步（防抖）", async () => {
 	const { app, plugin } = await setup();
 	const today = moment();
@@ -180,7 +216,7 @@ await check("今天的日记改动后自动同步（防抖）", async () => {
 	assert.ok(synced, "修改后应产生同步状态");
 	assert.equal(synced.sourceDate, today.format("YYYY-MM-DD"));
 	assert.equal(synced.todo.length, 2);
-	assert.equal(synced.mission.length, 1);
+	assert.equal(synced.urgent.length, 1);
 });
 
 await check("手动同步：从今天的日记抓取列表", async () => {
@@ -471,6 +507,34 @@ await check("空白日记补链接时不会留下多余空行", async () => {
 		app.vault.getAbstractFileByPath("日记/2026-10-12.md").__content,
 		"所属月份：[[2026-10]]\n"
 	);
+});
+
+await check("内容没变时不会反复重写 data.json", async () => {
+	const { app, plugin } = await setup();
+	const today = moment();
+	const file = await app.vault.create(
+		`日记/${today.format("YYYY-MM-DD")}.md`,
+		"# To-do list\n- [ ] A\n"
+	);
+	await sleep(120);
+
+	let saves = 0;
+	const original = plugin.saveSettings.bind(plugin);
+	plugin.saveSettings = async () => {
+		saves += 1;
+		return original();
+	};
+
+	await plugin.syncFromFile(file); // 第一次建立状态，允许写一次
+	assert.equal(saves, 1);
+
+	await plugin.syncFromFile(file);
+	await plugin.syncFromFile(file);
+	assert.equal(saves, 1, "内容一致时不应再写盘");
+
+	await app.vault.modify(file, "# To-do list\n- [ ] A\n- [ ] B\n");
+	await plugin.syncFromFile(file);
+	assert.equal(saves, 2, "内容变化时应写一次");
 });
 
 console.log("自动套用开关");

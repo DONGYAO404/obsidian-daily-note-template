@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>日记模板 · 功能说明</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; padding: 0; background: #e9edeb; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    color: #1f2a30;
+    font-size: 11pt;
+    line-height: 1.86;
+  }
+  .page {
+    position: relative;
+    width: 210mm;
+    height: 297mm;
+    padding: 16mm 16mm 14mm;
+    margin: 0 auto 8mm;
+    background: #fff;
+    overflow: hidden;
+    page-break-after: always;
+  }
+  .page:last-child { page-break-after: auto; margin-bottom: 0; }
+
+  /* 配色 */
+  .accent { color: #2c6b5f; }
+  .muted { color: #6d7c84; }
+
+  /* 页眉 */
+  .eyebrow {
+    font-size: 8pt; letter-spacing: .22em; text-transform: uppercase;
+    color: #2c6b5f; font-weight: 700; margin-bottom: 6mm;
+  }
+  .page-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid #dfe6e3; padding-bottom: 2.5mm; margin-bottom: 7mm;
+    font-size: 8.2pt; color: #85949b;
+  }
+  .page-head b { color: #2c6b5f; font-weight: 700; letter-spacing: .06em; }
+
+  h1 { font-size: 33pt; line-height: 1.15; margin: 0 0 2mm; letter-spacing: -.01em; }
+  h1 .en { display: block; font-size: 16pt; font-weight: 400; color: #7d8d94; letter-spacing: .04em; margin-top: 3mm; }
+  h2 {
+    font-size: 14.5pt; margin: 0 0 3.6mm; padding-left: 3.2mm;
+    border-left: 3.5px solid #2c6b5f; line-height: 1.3;
+  }
+  h2 small { font-size: 8.5pt; color: #98a5ab; font-weight: 400; margin-left: 2mm; letter-spacing: .08em; }
+  h3 { font-size: 10.8pt; margin: 0 0 1.5mm; }
+  p { margin: 0 0 2.5mm; }
+  .lead { font-size: 12pt; line-height: 1.85; color: #3c4a51; }
+
+  .cover-rule { width: 22mm; height: 4px; background: #2c6b5f; margin: 8mm 0 6mm; }
+
+  .cards { display: flex; gap: 4mm; margin: 8mm 0 0; }
+  .card {
+    flex: 1; background: #f4f8f6; border: 1px solid #e0e9e5;
+    border-radius: 2.5mm; padding: 5.5mm 5mm;
+  }
+  .card .num { font-size: 8pt; color: #2c6b5f; font-weight: 700; letter-spacing: .18em; }
+  .card h3 { margin: 1.8mm 0 1.8mm; font-size: 12.2pt; }
+  .card p { margin: 0; font-size: 9.7pt; color: #5b6b72; line-height: 1.72; }
+
+  .kicker { font-size: 8.6pt; letter-spacing: .16em; color: #9aa8ae; margin-bottom: 1.5mm; }
+
+  .cover-foot {
+    position: absolute; left: 16mm; right: 16mm; bottom: 14mm;
+    border-top: 1px solid #dfe6e3; padding-top: 3mm;
+    display: flex; justify-content: space-between; font-size: 8.4pt; color: #85949b;
+  }
+
+  /* 列表 */
+  ul.clean { margin: 0 0 2mm; padding-left: 4.5mm; }
+  ul.clean li { margin-bottom: 1.2mm; }
+  ul.clean li::marker { color: #2c6b5f; }
+
+  /* 表格 */
+  table { width: 100%; border-collapse: collapse; margin: 1mm 0 4mm; font-size: 9.9pt; }
+  th, td { text-align: left; padding: 2.1mm 2.6mm; border-bottom: 1px solid #e6ece9; vertical-align: top; }
+  th { background: #eef4f1; color: #2c6b5f; font-weight: 700; font-size: 8.8pt; }
+  td:first-child { white-space: nowrap; }
+  table.compact td, table.compact th { padding: 1.3mm 2.2mm; }
+
+  /* 代码 */
+  pre {
+    margin: 0 0 3mm; padding: 3mm 3.5mm; background: #f7f9f8;
+    border-left: 2.5px solid #b9d3ca; border-radius: 0 1.5mm 1.5mm 0;
+    font-family: "Cascadia Mono", Consolas, monospace; font-size: 9.1pt;
+    line-height: 1.65; color: #35454c; white-space: pre-wrap;
+  }
+  code.inline {
+    font-family: "Cascadia Mono", Consolas, monospace; font-size: 8.8pt;
+    background: #eef4f1; padding: .3mm 1.4mm; border-radius: 1mm; color: #2c6b5f;
+  }
+
+  /* 结构示意 */
+  .flow { display: flex; align-items: stretch; gap: 2.5mm; margin: 3mm 0 4mm; }
+  .node {
+    flex: 1; border: 1px solid #d8e5df; border-radius: 2mm; padding: 3mm;
+    background: #fbfdfc; text-align: center;
+  }
+  .node .tag { font-size: 7.6pt; letter-spacing: .16em; color: #9aa8ae; }
+  .node .name { font-size: 10.6pt; font-weight: 700; margin: 1mm 0 .6mm; }
+  .node .desc { font-size: 8.2pt; color: #6d7c84; }
+  .arrow { display: flex; align-items: center; color: #b3c9c2; font-size: 13pt; }
+
+  /* 双栏 */
+  .cols { display: flex; gap: 7mm; }
+  .cols > div { flex: 1; min-width: 0; }
+
+  .callout {
+    background: #fdf6ef; border-left: 3px solid #d08d5b; border-radius: 0 1.5mm 1.5mm 0;
+    padding: 2.5mm 3.5mm; font-size: 9pt; color: #6b5747; margin: 2mm 0 3mm;
+  }
+  .callout b { color: #a8663a; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 1.6mm; margin: 1mm 0 3mm; }
+  .chip {
+    font-family: "Cascadia Mono", Consolas, monospace; font-size: 8pt;
+    background: #eef4f1; color: #2c6b5f; border-radius: 1mm; padding: .8mm 2mm;
+  }
+
+  .section { margin-bottom: 8.5mm; }
+  .section:last-child { margin-bottom: 0; }
+  .two-col { display: flex; gap: 6mm; }
+  .two-col > div { flex: 1; }
+  .tag-pill {
+    display: inline-block; font-size: 7.8pt; letter-spacing: .1em; color: #2c6b5f;
+    background: #eaf2ee; border-radius: 1mm; padding: .5mm 2mm; margin-bottom: 1.5mm;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 第 1 页：封面 ============ -->
+<section class="page">
+  <div class="eyebrow">Obsidian 插件 · v1.8.0</div>
+  <h1>日记模板<span class="en">Daily Note Template</span></h1>
+  <div class="cover-rule"></div>
+  <p class="lead">
+    一个让「每天写日记」自动发生的插件：<br />
+    按模板生成、跟着当天的内容更新、自动补齐漏掉的日子，<br />
+    并维护「年 → 月 → 日」的完整结构。
+  </p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="num">01</div>
+      <h3>不断档</h3>
+      <p>哪天没打开 Obsidian，下次启动会把缺的日子按顺序补上，日记序列不会断。</p>
+    </div>
+    <div class="card">
+      <div class="num">02</div>
+      <h3>会生长</h3>
+      <p>待办跟着「今天」的清单走；勾选状态第二天自动还原，做完的紧急任务自动消失。</p>
+    </div>
+    <div class="card">
+      <div class="num">03</div>
+      <h3>有结构</h3>
+      <p>每年、每月自动生成节点，日记自动挂上所属月份，形成可回溯的时间轴。</p>
+    </div>
+  </div>
+
+  <div style="margin-top: 9mm;">
+    <div class="kicker">一句话流程</div>
+    <pre style="font-size: 9.4pt; line-height: 1.9;">打开 Obsidian  →  今天的日记已就位（按模板）  →  开始写
+                →  模板里的清单跟着变  →  明天照做</pre>
+  </div>
+
+  <div style="margin-top: 11mm;">
+    <div class="kicker">本册内容</div>
+    <table class="compact" style="font-size: 10pt;">
+      <tr><td style="width: 13mm; color:#2c6b5f; font-weight:700;">02</td><td>它解决的三个麻烦 · 每天的日记自动就位 · 待办是「活」的</td></tr>
+      <tr><td style="color:#2c6b5f; font-weight:700;">03</td><td>年 / 月节点 · 模板随时可改 · 每天第一次打开自动进入</td></tr>
+      <tr><td style="color:#2c6b5f; font-weight:700;">04</td><td>命令一览 · 主要设置</td></tr>
+      <tr><td style="color:#2c6b5f; font-weight:700;">05</td><td>安装 · 常见问题 · 技术信息</td></tr>
+    </table>
+  </div>
+  <div class="cover-foot">
+    <span>纯本地运行 · 不联网 · 不覆盖你已有的笔记</span>
+    <span>功能说明 · 2026-11</span>
+  </div>
+</section>
+
+<!-- ============ 第 2 页：问题 + 功能一、二 ============ -->
+<section class="page">
+  <div class="page-head"><span><b>日记模板</b> · 功能说明</span><span>02</span></div>
+
+  <div class="section">
+    <h2>它解决的三个麻烦</h2>
+    <table class="compact">
+      <tr><th style="width: 30%;">困扰</th><th>插件的做法</th></tr>
+      <tr><td>每天手动复制模板</td><td>新建日记时自动套用你设定好的模板，改一次模板，以后都生效。</td></tr>
+      <tr><td>某天没开 Obsidian，日记就空了</td><td>启动、跨天、休眠唤醒时自动检查，把缺的日子按模板补齐。</td></tr>
+      <tr><td>任务清单每天重建，勾选状态混乱</td><td>待办自动镜像昨天的清单并还原勾选；任务 / 紧急任务只保留下没做完的。</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>功能一 · 每天的日记自动就位 <small>不用你点开</small></h2>
+    <table class="compact">
+      <tr><th style="width: 34%;">时机</th><th>行为</th></tr>
+      <tr><td>Obsidian 启动</td><td>从「最近一篇日记」的第二天补到今天，中间缺几天补几天。</td></tr>
+      <tr><td>跨零点 / 休眠唤醒</td><td>每分钟检查日期，变了就补建，且不会切走你正在看的笔记。</td></tr>
+      <tr><td>今天已经建过</td><td>不重复创建；你主动删掉今天的日记，当天也不会反复重建。</td></tr>
+      <tr><td>缺的日子过多</td><td>只补最近 N 天（默认 31，可改）；历史空档用命令手动补齐。</td></tr>
+    </table>
+    <div class="callout">
+      <b>为什么历史空档要手动？</b>自动补建只向前看，否则每次启动扫全仓库会把删掉的旧日记反复重建。
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>功能二 · 待办是「活」的 <small>跟着今天变</small></h2>
+    <div class="cols">
+      <div>
+        <div class="tag-pill">To-do list · 每日待办</div>
+        <p style="font-size:9.2pt;">完整镜像今天的清单：今天加一条，明天就有；删一条，明天就没有。勾选状态在新日记里<b>全部还原成未勾选</b>。</p>
+      </div>
+      <div>
+        <div class="tag-pill">Mission · 任务</div>
+        <p style="font-size:9.2pt;">只带「没打勾」的：新加进来的进入明天；打勾完成的<b>从模板里消失</b>，当天日记不受影响。</p>
+      </div>
+      <div>
+        <div class="tag-pill">Urgent mission · 紧急</div>
+        <p style="font-size:9.2pt;">与 Mission <b>完全同一套规则</b>，只是你按紧急与否分开放；两栏互不影响。</p>
+      </div>
+    </div>
+    <p style="font-size:9.4pt; margin-top: 2mm;">
+      改动今天的日记，停手约 <b>0.7 秒</b>模板就同步；设置页能看到来源和明天会带走的清单。
+    </p>
+  </div>
+  <div class="section" style="margin-bottom: 0;">
+    <h2>默认模板 <small>整段可以换掉</small></h2>
+    <table class="compact" style="font-size: 9.6pt; margin-bottom: 2mm;">
+      <tr><th style="width: 40%;">模板里的写法</th><th>生成日记时</th></tr>
+      <tr><td><code class="inline"># To-do list</code></td><td>填入 {{todo_list}}：今天清单的完整镜像，勾选全部还原</td></tr>
+      <tr><td><code class="inline">## Mission</code></td><td>填入 {{mission_list}}：只带没打勾的条目</td></tr>
+      <tr><td><code class="inline">## Urgent mission</code></td><td>填入 {{urgent_list}}：规则同上</td></tr>
+      <tr><td><code class="inline"># Exercise</code></td><td>保留标题，{{cursor}} 决定光标停在哪一行</td></tr>
+    </table>
+    <p style="font-size: 9.2pt; margin: 0;">标题名、顺序、其它段落都能改；忘放占位符时也会兜底插到同名标题下。</p>
+  </div>
+</section>
+
+<!-- ============ 第 3 页：年/月节点 + 模板 + 自动打开 ============ -->
+<section class="page">
+  <div class="page-head"><span><b>日记模板</b> · 功能说明</span><span>03</span></div>
+
+  <div class="section">
+    <h2>功能三 · 年 / 月节点 <small>时间轴自动成形</small></h2>
+
+    <div class="flow">
+      <div class="node">
+        <div class="tag">年节点</div>
+        <div class="name">2026</div>
+        <div class="desc">「## 月份」列出当年所有月份</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node">
+        <div class="tag">月节点</div>
+        <div class="name">2026-11</div>
+        <div class="desc">「## 日记」列出当月所有日记</div>
+      </div>
+      <div class="arrow">⇄</div>
+      <div class="node">
+        <div class="tag">日记</div>
+        <div class="name">2026-11-23</div>
+        <div class="desc">末尾自动写上所属月份链接</div>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <div class="kicker">2026-11.md（月节点）</div>
+        <pre># 2026年11月
+
+所属年份：[[2026]]
+
+## 日记
+
+- [[2026-11-02]]
+- [[2026-11-03]]
+- ……</pre>
+      </div>
+      <div>
+        <div class="kicker">2026-11-23.md（日记结尾）</div>
+        <pre>## Exercise
+
+15*4
+
+所属月份：[[2026-11]]</pre>
+      </div>
+    </div>
+
+    <ul class="clean" style="font-size: 9.4pt;">
+      <li>当月第一篇日记创建时生成月节点，当年第一个月节点创建时生成年节点（每月第一天、每年第一天自然触发）。</li>
+      <li>月节点自动扫描<b>当月所有已存在的日记</b>，补建或新增都会补进清单；年节点的月份清单同理。</li>
+      <li>节点默认与日记同目录，也可指定独立文件夹；文件名格式 <code class="inline">YYYY-MM</code> / <code class="inline">YYYY</code> 可改。</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>功能四 · 模板随时可改 <small>两种来源</small></h2>
+    <div class="two-col" style="font-size: 9.4pt;">
+      <div>
+        <h3>内置文本</h3>
+        <p>在设置页的大文本框里直接写，输完自动保存；点「预览渲染结果」可先看效果。</p>
+      </div>
+      <div>
+        <h3>笔记文件</h3>
+        <p>用一个 Markdown 笔记当模板，像写笔记一样改，改完保存立即生效，也方便同步与版本管理。</p>
+      </div>
+    </div>
+    <div class="chips" style="margin-top: 2mm;">
+      <span class="chip">{{todo_list}}</span>
+      <span class="chip">{{mission_list}}</span>
+      <span class="chip">{{urgent_list}}</span>
+      <span class="chip">{{todo_heading}}</span>
+      <span class="chip">{{date}}</span>
+      <span class="chip">{{date:YYYY年M月D日}}</span>
+      <span class="chip">{{weekday}}</span>
+      <span class="chip">{{yesterday}}</span>
+      <span class="chip">{{tomorrow}}</span>
+      <span class="chip">{{title}}</span>
+      <span class="chip">{{folder}}</span>
+      <span class="chip">{{month_link}}</span>
+      <span class="chip">{{cursor}}</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>功能五 · 每天第一次打开自动进入 <small>可关</small></h2>
+    <p style="font-size: 9.4pt;">
+      三档可选：<b>不自动打开</b>（只创建）／<b>仅新建时打开</b>（只在刚补建出来那一次）／<b>每天首次启动打开</b>（默认）。
+      跨天补建永远不抢焦点，避免半夜写东西被切走。
+    </p>
+  </div>
+</section>
+
+<!-- ============ 第 4 页：命令与设置 ============ -->
+<section class="page">
+  <div class="page-head"><span><b>日记模板</b> · 功能说明</span><span>04</span></div>
+
+  <div class="section">
+    <h2>命令一览 <small>10 个</small></h2>
+    <table class="compact">
+      <tr><th style="width: 38%;">命令</th><th>作用</th></tr>
+      <tr><td>打开今日日记</td><td>不存在则按模板创建；侧边栏日历图标同效。</td></tr>
+      <tr><td>打开指定日期的日记</td><td>补写或预写其他日期，列表来自那天之前最近的一篇。</td></tr>
+      <tr><td>把日记模板插入当前笔记</td><td>在光标处插入渲染好的模板，不动原有内容。</td></tr>
+      <tr><td>用模板重建当前笔记</td><td>二次确认后整篇替换为模板内容。</td></tr>
+      <tr><td>编辑日记模板</td><td>打开模板文件；内置模式则跳到设置页。</td></tr>
+      <tr><td>预览模板渲染结果</td><td>按今天的日期渲染一遍，先看效果。</td></tr>
+      <tr><td>从今天的日记同步模板列表</td><td>手动刷新模板里的待办、任务与紧急任务。</td></tr>
+      <tr><td>补齐最近缺失的日记</td><td>扫描最近 N 天，一次补掉历史空档。</td></tr>
+      <tr><td>生成 / 更新年、月节点</td><td>立即建好今年、本月节点并补全清单。</td></tr>
+      <tr><td>给已有日记补上月份链接</td><td>给旧日记补「所属月份」并建好对应节点（可重复执行）。</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>主要设置 <small>都在「设置 → 日记模板」</small></h2>
+    <table class="compact">
+      <tr><th style="width: 34%;">设置</th><th>说明</th></tr>
+      <tr><td>模板来源 / 内容</td><td>内置文本或笔记文件；支持变量与 <code class="inline">{{cursor}}</code>。</td></tr>
+      <tr><td>三个区块标题</td><td><code class="inline">To-do list</code> / <code class="inline">Mission</code> / <code class="inline">Urgent mission</code>，改名时同步修改。</td></tr>
+      <tr><td>列表同步开关</td><td>可分别关闭，关闭后待办回落到「初始待办」。</td></tr>
+      <tr><td>日记文件夹 / 文件名格式</td><td>默认跟随 Obsidian「日记」核心插件，也可自定义。</td></tr>
+      <tr><td>额外日记文件夹</td><td>旧日记归档目录，一样会被索引和补链接。</td></tr>
+      <tr><td>自动补建 / 回溯天数</td><td>是否自动补建、最多往回补多少天（默认 31）。</td></tr>
+      <tr><td>自动打开模式</td><td>不打开 / 仅新建时 / 每天首次启动。</td></tr>
+      <tr><td>年 / 月节点</td><td>开关、文件名格式、存放文件夹。</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 第 5 页：安装 + FAQ ============ -->
+<section class="page">
+  <div class="page-head"><span><b>日记模板</b> · 功能说明</span><span>05</span></div>
+
+  <div class="section">
+    <h2>安装 <small>三步</small></h2>
+    <ol class="clean" style="font-size: 9.6pt;">
+      <li>把 <code class="inline">daily-note-template</code> 文件夹放进 <code class="inline">&lt;你的仓库&gt;/.obsidian/plugins/</code>。</li>
+      <li>打开 Obsidian → 设置 → 第三方插件；若提示「受限模式」，先关闭。</li>
+      <li>点「刷新」，在列表里启用「日记模板 Daily Note Template」。</li>
+    </ol>
+    <p class="muted" style="font-size: 8.8pt;">更新插件时只需替换 main.js / manifest.json / styles.css，然后 <code class="inline">Ctrl+R</code> 重载。</p>
+  </div>
+
+  <div class="section">
+    <h2>常见问题</h2>
+
+    <h3>昨天打勾的任务，今天又出现了？</h3>
+    <p style="font-size: 9.4pt;">这是设计如此：待办是「每日固定清单」，勾选只对当天有效，第二天会还原成未勾选。</p>
+
+    <h3>一次性任务怎么处理？</h3>
+    <p style="font-size: 9.4pt;">放进 <b>Mission</b> 或 <b>Urgent mission</b>。两栏规则完全一样：没做完带到下一天，打勾后第二天消失，当天的记录仍然保留。</p>
+
+    <h3>会不会覆盖我写过的东西？</h3>
+    <p style="font-size: 9.4pt;">不会。自动套用只对「空白日记」生效；「用模板重建」是手动命令，并且会先弹窗确认。</p>
+
+    <h3>为什么旧日记没有月份链接？</h3>
+    <p style="font-size: 9.4pt;">功能上线前建的笔记不会自动改动。运行「给已有日记补上月份链接」补齐即可；旧日记在别的文件夹时，把目录填进「额外日记文件夹」。</p>
+
+    <h3>数据存在哪？会不会联网？</h3>
+    <p style="font-size: 9.4pt;">全部在你的仓库里（笔记 + 插件目录下的 data.json），插件不联网、不上传任何内容。</p>
+  </div>
+
+  <div class="section">
+    <h2>技术信息</h2>
+    <table class="compact">
+      <tr><td style="width: 30%;">版本</td><td>1.8.0（2026-11）</td></tr>
+      <tr><td>最低 Obsidian</td><td>1.4.0</td></tr>
+      <tr><td>平台</td><td>桌面端 / 移动端均可（TypeScript + esbuild，无原生依赖）</td></tr>
+      <tr><td>测试</td><td>79 项自动化测试（渲染与解析 34 · 插件集成 44 · 产物冒烟 1）</td></tr>
+      <tr><td>源码结构</td><td>main.ts（插件主体）· settings.ts（设置页）· template.ts（渲染）· daily-list.ts（区块解析）· ui.ts（弹窗）</td></tr>
+    </table>
+  </div>
+
+  <div class="callout" style="background:#f4f8f6; border-left-color:#2c6b5f; color:#3a4a50;">
+    <b style="color:#2c6b5f;">一句话总结</b>　你只管打开 Obsidian 开始写：模板、清单、日期节点都会自己跟上。
+  </div>
+  <div class="cover-foot" style="position: static; margin-top: 8mm;">
+    <span>日记模板 Daily Note Template · 功能说明</span>
+    <span>v1.8.0</span>
+  </div>
+</section>
+
+</body>
+</html>

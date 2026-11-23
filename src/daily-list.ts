@@ -14,25 +14,34 @@ export interface ListItem {
 	checked: boolean | null;
 	/** 缩进，原样保留 */
 	indent: string;
+	/** 原始列表符号：- * + 或 1. */
+	marker?: string;
 	/** 不是列表项的行（段落、引用等），原样保留 */
 	raw?: boolean;
+	/** 空行，用来保留段落间距 */
+	blank?: boolean;
 }
 
 export interface SectionNames {
 	todo: string;
+	/** 普通任务（与紧急任务共用逻辑） */
 	mission: string;
+	/** 紧急任务；不传则忽略这一栏 */
+	urgent?: string;
 }
 
 export interface ParsedLists {
 	todo: ListItem[];
 	mission: ListItem[];
-	found: { todo: boolean; mission: boolean };
+	urgent: ListItem[];
+	found: { todo: boolean; mission: boolean; urgent: boolean };
 }
 
 /** 同步结果，保存在插件 data.json 里 */
 export interface SyncedLists {
 	todo: ListItem[];
 	mission: ListItem[];
+	urgent: ListItem[];
 	/** 来源日记路径 */
 	sourcePath: string;
 	/** 来源日记日期 YYYY-MM-DD */
@@ -73,16 +82,27 @@ function sameHeading(a: string, b: string): boolean {
 /** 把一段正文解析成条目列表 */
 export function parseItems(body: string[]): ListItem[] {
 	const items: ListItem[] = [];
+	const pushBlank = (): void => {
+		const last = items[items.length - 1];
+		if (!last || last.blank) return;
+		items.push({ text: "", checked: null, indent: "", blank: true });
+	};
+
 	for (const line of body) {
-		if (line.trim() === "") continue;
+		if (line.trim() === "") {
+			pushBlank();
+			continue;
+		}
 
 		const item = ITEM_RE.exec(line);
 		if (!item) {
-			items.push({ text: line.trim(), checked: null, indent: "", raw: true });
+			// 段落、引用、代码块等：整行原样保留（含缩进），不加任何标记
+			items.push({ text: line.replace(/\s+$/, ""), checked: null, indent: "", raw: true });
 			continue;
 		}
 
 		const indent = (item[1] as string).replace(/\t/g, "    ");
+		const marker = item[2] as string;
 		const rest = item[3] as string;
 		const check = CHECK_RE.exec(rest);
 		if (check) {
@@ -90,20 +110,25 @@ export function parseItems(body: string[]): ListItem[] {
 				text: (check[2] as string).trim(),
 				checked: (check[1] as string).toLowerCase() === "x",
 				indent,
+				marker,
 			});
 		} else {
-			items.push({ text: rest.trim(), checked: null, indent });
+			items.push({ text: rest.trim(), checked: null, indent, marker });
 		}
 	}
+
+	// 去掉末尾的空行
+	while (items.length > 0 && items[items.length - 1]?.blank) items.pop();
 	return items;
 }
 
-/** 从整篇日记里取两个区块 */
+/** 从整篇日记里取各个区块 */
 export function parseLists(markdown: string, names: SectionNames): ParsedLists {
 	const result: ParsedLists = {
 		todo: [],
 		mission: [],
-		found: { todo: false, mission: false },
+		urgent: [],
+		found: { todo: false, mission: false, urgent: false },
 	};
 	for (const block of splitBlocks(markdown)) {
 		if (!result.found.todo && sameHeading(block.heading, names.todo)) {
@@ -112,6 +137,13 @@ export function parseLists(markdown: string, names: SectionNames): ParsedLists {
 		} else if (!result.found.mission && sameHeading(block.heading, names.mission)) {
 			result.mission = parseItems(block.body);
 			result.found.mission = true;
+		} else if (
+			names.urgent &&
+			!result.found.urgent &&
+			sameHeading(block.heading, names.urgent)
+		) {
+			result.urgent = parseItems(block.body);
+			result.found.urgent = true;
 		}
 	}
 	return result;
@@ -126,15 +158,22 @@ export interface RenderListOptions {
 export function renderItems(items: ListItem[], options: RenderListOptions = {}): string {
 	const lines: string[] = [];
 	for (const item of items) {
-		if (options.dropChecked && item.checked === true) continue;
-		if (item.raw) {
-			lines.push(item.indent + item.text);
+		if (item.blank) {
+			lines.push("");
 			continue;
 		}
+		if (options.dropChecked && item.checked === true) continue;
+
+		if (item.raw) {
+			lines.push(item.text);
+			continue;
+		}
+
+		const marker = item.marker ?? "-";
 		if (item.checked === null) {
-			lines.push(`${item.indent}- ${item.text}`);
+			lines.push(`${item.indent}${marker} ${item.text}`);
 		} else {
-			lines.push(`${item.indent}- [ ] ${item.text}`);
+			lines.push(`${item.indent}${marker} [ ] ${item.text}`);
 		}
 	}
 	return lines.join("\n");
@@ -145,20 +184,26 @@ export function itemsFromLines(lines: string[]): ListItem[] {
 	return lines.map((line) => {
 		const item = ITEM_RE.exec(line);
 		if (!item) return { text: line.trim(), checked: null, indent: "" };
+		const marker = item[2] as string;
 		const check = CHECK_RE.exec(item[3] as string);
 		if (check) {
-			return { text: (check[2] as string).trim(), checked: false, indent: "" };
+			return { text: (check[2] as string).trim(), checked: false, indent: "", marker };
 		}
-		return { text: (item[3] as string).trim(), checked: null, indent: "" };
+		return { text: (item[3] as string).trim(), checked: null, indent: "", marker };
 	});
 }
 
 /** 统计：模板里最终会带走的条目数 */
-export function countCarryOver(list: SyncedLists | null): { todo: number; mission: number } {
-	if (!list) return { todo: 0, mission: 0 };
+export function countCarryOver(
+	list: SyncedLists | null
+): { todo: number; mission: number; urgent: number } {
+	if (!list) return { todo: 0, mission: 0, urgent: 0 };
+	const carry = (items: ListItem[] | undefined): number =>
+		(items ?? []).filter((item) => item.checked !== true).length;
 	return {
 		todo: list.todo.length,
-		mission: list.mission.filter((item) => item.checked !== true).length,
+		mission: carry(list.mission),
+		urgent: carry(list.urgent),
 	};
 }
 

@@ -29,8 +29,10 @@ export interface DailyTemplateSettings {
 	injectTasksWithoutPlaceholder: boolean;
 	/** 待办区块的标题名 */
 	todoHeading: string;
-	/** 紧急任务区块的标题名 */
+	/** 任务区块的标题名（与紧急任务共用同一套更新逻辑） */
 	missionHeading: string;
+	/** 紧急任务区块的标题名 */
+	urgentHeading: string;
 	/** 待办列表跟随今天的日记 */
 	syncTodo: boolean;
 	/** 紧急任务跟随今天的日记（完成的会被剔除） */
@@ -71,7 +73,8 @@ export const DEFAULT_SETTINGS: DailyTemplateSettings = {
 	recurringTasks: DEFAULT_TASKS,
 	injectTasksWithoutPlaceholder: true,
 	todoHeading: "To-do list",
-	missionHeading: "Urgent mission",
+	missionHeading: "Mission",
+	urgentHeading: "Urgent mission",
 	syncTodo: true,
 	syncMission: true,
 	synced: null,
@@ -170,7 +173,7 @@ export class DailyTemplateSettingTab extends PluginSettingTab {
 		wrap.createEl("div", { cls: "dnt-block-title", text: "模板内容" });
 		wrap.createEl("div", {
 			cls: "dnt-block-desc",
-			text: "{{todo_list}} 放待办，{{mission_list}} 放紧急任务，{{cursor}} 决定打开日记后光标停在哪。",
+			text: "{{todo_list}} 放待办，{{mission_list}} 放任务，{{urgent_list}} 放紧急任务，{{cursor}} 决定打开日记后光标停在哪。",
 		});
 
 		const textarea = wrap.createEl("textarea", { cls: "dnt-textarea" });
@@ -254,7 +257,7 @@ export class DailyTemplateSettingTab extends PluginSettingTab {
 
 		parent.createEl("p", {
 			cls: "dnt-hint",
-			text: "打开插件或修改「今天」的日记时，插件会读取那两个区块：待办原样保留（勾选状态在生成新日记时统一还原），紧急任务只保留没打勾的（打勾的从模板里消失，但当天日记不受影响）。",
+			text: "打开插件或修改「今天」的日记时，插件会读取三个区块：待办原样保留（勾选状态在生成新日记时统一还原）；任务和紧急任务共用一套逻辑——只保留没打勾的，打勾的从模板里消失，但当天日记不受影响。",
 		});
 
 		new Setting(parent)
@@ -272,14 +275,28 @@ export class DailyTemplateSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(parent)
+			.setName("任务区块标题")
+			.setDesc("例如「Mission」。与紧急任务共用同一套「只带未完成」的逻辑。")
+			.addText((text) => {
+				text
+					.setPlaceholder("Mission")
+					.setValue(this.plugin.settings.missionHeading)
+					.onChange((value) => {
+						this.plugin.settings.missionHeading = value;
+						this.queueSave();
+					});
+				text.inputEl.addClass("dnt-text-wide");
+			});
+
+		new Setting(parent)
 			.setName("紧急任务区块标题")
 			.setDesc("例如「Urgent mission」。")
 			.addText((text) => {
 				text
 					.setPlaceholder("Urgent mission")
-					.setValue(this.plugin.settings.missionHeading)
+					.setValue(this.plugin.settings.urgentHeading)
 					.onChange((value) => {
-						this.plugin.settings.missionHeading = value;
+						this.plugin.settings.urgentHeading = value;
 						this.queueSave();
 					});
 				text.inputEl.addClass("dnt-text-wide");
@@ -297,8 +314,8 @@ export class DailyTemplateSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(parent)
-			.setName("紧急任务跟随今天的日记")
-			.setDesc("关闭后，模板里的紧急任务永远为空。")
+			.setName("任务 / 紧急任务跟随今天的日记")
+			.setDesc("两者共用同一套逻辑；关闭后，模板里的这两块永远为空。")
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.syncMission).onChange(async (value) => {
 					this.plugin.settings.syncMission = value;
@@ -323,13 +340,16 @@ export class DailyTemplateSettingTab extends PluginSettingTab {
 			const counts = countCarryOver(synced);
 			box.createEl("div", {
 				cls: "dnt-sync-source",
-				text: `同步来源：${synced.sourcePath}（${synced.sourceDate}）｜待办 ${counts.todo} 条｜紧急任务会带走 ${counts.mission} 条`,
+				text: `同步来源：${synced.sourcePath}（${synced.sourceDate}）｜待办 ${counts.todo} 条｜任务会带走 ${counts.mission} 条｜紧急任务会带走 ${counts.urgent} 条`,
 			});
 
 			const preview = box.createEl("pre", { cls: "dnt-sync-preview" });
-			const todoLines = renderItems(synced.todo) || "（空）";
-			const missionLines = renderItems(synced.mission, { dropChecked: true }) || "（空）";
-			preview.setText(`待办：\n${todoLines}\n\n紧急任务（未完成）：\n${missionLines}`);
+			const todoLines = renderItems(synced.todo ?? []) || "（空）";
+			const missionLines = renderItems(synced.mission ?? [], { dropChecked: true }) || "（空）";
+			const urgentLines = renderItems(synced.urgent ?? [], { dropChecked: true }) || "（空）";
+			preview.setText(
+				`待办：\n${todoLines}\n\n任务（未完成）：\n${missionLines}\n\n紧急任务（未完成）：\n${urgentLines}`
+			);
 		}
 
 		new Setting(parent)
@@ -666,7 +686,9 @@ export class DailyTemplateSettingTab extends PluginSettingTab {
 
 		const rows: Array<[string, string]> = [
 			["{{todo_list}}", "待办列表（跟随今天，勾选状态会还原）"],
-			["{{mission_list}}", "紧急任务（跟随今天，已完成的会被剔除）"],
+			["{{mission_list}}", "任务列表（跟随今天，已完成的会被剔除）"],
+			["{{urgent_list}}", "紧急任务（与 Mission 同一套逻辑）"],
+			["{{todo_heading}} / {{mission_heading}} / {{urgent_heading}}", "三个区块的标题名（改设置即生效）"],
 			["{{date}}", "日期，格式为 2026-11-23"],
 			["{{date:YYYY年M月D日}}", "自定义日期格式"],
 			["{{time}} / {{time:HH:mm:ss}}", "时间"],

@@ -13,12 +13,16 @@ export interface RenderContext {
 	folder: string;
 	/** 待办列表的渲染结果（复选框已统一恢复成未勾选） */
 	todoText: string;
-	/** 紧急任务的渲染结果（已完成的条目已被剔除） */
+	/** 普通任务（Mission）的渲染结果（已完成的条目已被剔除） */
 	missionText: string;
+	/** 紧急任务（Urgent mission）的渲染结果（已完成的条目已被剔除） */
+	urgentText: string;
 	/** 待办区块的标题名，用于「模板里忘了放占位符」时兜底 */
 	todoHeading: string;
-	/** 紧急任务区块的标题名 */
+	/** 普通任务区块的标题名 */
 	missionHeading: string;
+	/** 紧急任务区块的标题名 */
+	urgentHeading: string;
 	/** 日期格式化函数，等价于 moment(date).format(pattern) */
 	format: (date: Date, pattern: string) => string;
 	/** 月节点的链接文本，例如 [[2026-11]]；空字符串表示不建立关联 */
@@ -40,8 +44,11 @@ export interface RenderResult {
 export const DEFAULT_TEMPLATE = `# To-do list
 {{todo_list}}
 
-## Urgent mission
+## Mission
 {{mission_list}}
+
+## Urgent mission
+{{urgent_list}}
 
 # Exercise
 
@@ -54,7 +61,7 @@ export const DEFAULT_TASKS = `喝水 2L
 
 /** 变量占位符：{{name}} 或 {{name:格式}} */
 const VARIABLE_RE =
-	/\{\{\s*(date|time|yesterday|tomorrow|weekday|title|filename|folder|todo_list|mission_list|daily_tasks|tasks|month_link|year_link|cursor)\s*(?::([^{}]*?))?\s*\}\}/gi;
+	/\{\{\s*(date|time|yesterday|tomorrow|weekday|title|filename|folder|todo_list|mission_list|urgent_list|daily_tasks|tasks|month_link|year_link|todo_heading|mission_heading|urgent_heading|cursor)\s*(?::([^{}]*?))?\s*\}\}/gi;
 
 function addDays(date: Date, days: number): Date {
 	const copy = new Date(date.getTime());
@@ -109,10 +116,18 @@ function substitute(source: string, ctx: RenderContext): string {
 				return ctx.todoText;
 			case "mission_list":
 				return ctx.missionText;
+			case "urgent_list":
+				return ctx.urgentText;
 			case "month_link":
 				return ctx.monthLink ?? "";
 			case "year_link":
 				return ctx.yearLink ?? "";
+			case "todo_heading":
+				return ctx.todoHeading;
+			case "mission_heading":
+				return ctx.missionHeading;
+			case "urgent_heading":
+				return ctx.urgentHeading;
 			case "cursor":
 				// cursor 已在 renderTemplate 中优先处理，剩下的重复占位符直接丢弃
 				return "";
@@ -146,10 +161,10 @@ function injectUnderHeading(state: RenderState, heading: string, text: string): 
 	state.content = base ? `${base}\n\n## ${name}\n${text}\n` : `## ${name}\n${text}\n`;
 }
 
-function hasSlot(template: string, kind: "todo" | "mission"): boolean {
-	return kind === "todo"
-		? /\{\{\s*(todo_list|daily_tasks|tasks)\s*(\}|:)/i.test(template)
-		: /\{\{\s*mission_list\s*(\}|:)/i.test(template);
+function hasSlot(template: string, kind: "todo" | "mission" | "urgent"): boolean {
+	if (kind === "todo") return /\{\{\s*(todo_list|daily_tasks|tasks)\s*(\}|:)/i.test(template);
+	if (kind === "mission") return /\{\{\s*mission_list\s*(\}|:)/i.test(template);
+	return /\{\{\s*urgent_list\s*(\}|:)/i.test(template);
 }
 
 /**
@@ -173,6 +188,9 @@ export function renderTemplate(template: string, ctx: RenderContext): RenderResu
 		}
 		if (!hasSlot(template, "mission") && ctx.missionText) {
 			injectUnderHeading(state, ctx.missionHeading, ctx.missionText);
+		}
+		if (!hasSlot(template, "urgent") && ctx.urgentText) {
+			injectUnderHeading(state, ctx.urgentHeading, ctx.urgentText);
 		}
 	}
 

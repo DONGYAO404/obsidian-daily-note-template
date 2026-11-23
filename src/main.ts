@@ -155,7 +155,23 @@ export default class DailyNoteTemplatePlugin extends Plugin {
 	// ─────────────────────────── 设置读写 ───────────────────────────
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loaded = ((await this.loadData()) ?? {}) as Partial<DailyTemplateSettings> & {
+			missionHeading?: string;
+			urgentHeading?: string;
+		};
+
+		// 旧版本只有「紧急任务」一个任务区块：迁移成 Urgent mission，Mission 用默认名
+		if (loaded.urgentHeading === undefined) {
+			if (typeof loaded.missionHeading === "string" && loaded.missionHeading.trim()) {
+				loaded.urgentHeading = loaded.missionHeading;
+			}
+			loaded.missionHeading = "Mission";
+		}
+
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
+		if (this.settings.synced && !Array.isArray(this.settings.synced.urgent)) {
+			this.settings.synced.urgent = [];
+		}
 	}
 
 	async saveSettings(): Promise<void> {
@@ -306,8 +322,9 @@ export default class DailyNoteTemplatePlugin extends Plugin {
 		const todoItems = this.settings.syncTodo
 			? lists.todo
 			: itemsFromLines(normalizeTaskLines(this.settings.recurringTasks));
-		// 紧急任务：只带未完成的，已打勾的从模板里消失
+		// 任务 / 紧急任务：共用一套规则，只带未完成的
 		const missionItems = this.settings.syncMission ? lists.mission : [];
+		const urgentItems = this.settings.syncMission ? lists.urgent : [];
 
 		const timeNotes = this.settings.enableTimeNotes;
 		return renderTemplate(template, {
@@ -316,8 +333,10 @@ export default class DailyNoteTemplatePlugin extends Plugin {
 			folder,
 			todoText: renderItems(todoItems),
 			missionText: renderItems(missionItems, { dropChecked: true }),
+			urgentText: renderItems(urgentItems, { dropChecked: true }),
 			todoHeading: this.settings.todoHeading || "To-do list",
-			missionHeading: this.settings.missionHeading || "Urgent mission",
+			missionHeading: this.settings.missionHeading || "Mission",
+			urgentHeading: this.settings.urgentHeading || "Urgent mission",
 			monthLink: timeNotes ? `[[${this.linkTarget(this.getMonthNotePath(day))}]]` : "",
 			yearLink: timeNotes ? `[[${this.linkTarget(this.getYearNotePath(day))}]]` : "",
 			injectLists: this.settings.injectTasksWithoutPlaceholder,
@@ -330,12 +349,17 @@ export default class DailyNoteTemplatePlugin extends Plugin {
 	sectionNames(): SectionNames {
 		return {
 			todo: this.settings.todoHeading.trim() || "To-do list",
-			mission: this.settings.missionHeading.trim() || "Urgent mission",
+			mission: this.settings.missionHeading.trim() || "Mission",
+			urgent: this.settings.urgentHeading.trim() || "Urgent mission",
 		};
 	}
 
 	/** 给设置页用：当前同步状态摘要 */
-	syncSummary(): { source: string; date: string; counts: { todo: number; mission: number } } | null {
+	syncSummary(): {
+		source: string;
+		date: string;
+		counts: { todo: number; mission: number; urgent: number };
+	} | null {
 		const synced = this.settings.synced;
 		if (!synced) return null;
 		return {
@@ -346,22 +370,31 @@ export default class DailyNoteTemplatePlugin extends Plugin {
 	}
 
 	/** 生成某天的日记时，列表从哪里来：优先读「这一天之前最近的一篇日记」 */
-	private async resolveLists(day: Moment): Promise<{ todo: ListItem[]; mission: ListItem[] }> {
+	private async resolveLists(
+		day: Moment
+	): Promise<{ todo: ListItem[]; mission: ListItem[]; urgent: ListItem[] }> {
 		const fromNote = await this.readListsBefore(day);
 		if (fromNote) return fromNote;
 
 		const synced: SyncedLists | null = this.settings.synced;
-		if (synced) return { todo: synced.todo, mission: synced.mission };
+		if (synced) {
+			return {
+				todo: synced.todo ?? [],
+				mission: synced.mission ?? [],
+				urgent: synced.urgent ?? [],
+			};
+		}
 
 		return {
 			todo: itemsFromLines(normalizeTaskLines(this.settings.recurringTasks)),
 			mission: [],
+			urgent: [],
 		};
 	}
 
 	private async readListsBefore(
 		day: Moment
-	): Promise<{ todo: ListItem[]; mission: ListItem[] } | null> {
+	): Promise<{ todo: ListItem[]; mission: ListItem[]; urgent: ListItem[] } | null> {
 		const names = this.sectionNames();
 		const candidates: Array<{ file: TFile; date: Moment }> = [];
 
@@ -376,8 +409,8 @@ export default class DailyNoteTemplatePlugin extends Plugin {
 		for (const candidate of candidates.slice(0, 3)) {
 			try {
 				const parsed = parseLists(await this.app.vault.cachedRead(candidate.file), names);
-				if (parsed.found.todo || parsed.found.mission) {
-					return { todo: parsed.todo, mission: parsed.mission };
+				if (parsed.found.todo || parsed.found.mission || parsed.found.urgent) {
+					return { todo: parsed.todo, mission: parsed.mission, urgent: parsed.urgent };
 				}
 			} catch (error) {
 				console.error("[日记模板] 读取上一篇日记失败", candidate.file.path, error);
@@ -407,19 +440,35 @@ export default class DailyNoteTemplatePlugin extends Plugin {
 			// 这篇日记里没有目标区块（例如刚剪掉标题）时，不覆盖已有状态
 			if (!force && !parsed.found.todo && !parsed.found.mission) return false;
 
-			this.settings.synced = {
+			const next: SyncedLists = {
 				todo: parsed.todo,
 				mission: parsed.mission,
+				urgent: parsed.urgent,
 				sourcePath: file.path,
 				sourceDate: key,
 				updatedAt: Date.now(),
 			};
+			// 内容没变就不写 data.json：坚果云/Obsidian Sync 这类同步下，
+			// 频繁重写同一个配置文件会放大冲突概率
+			if (stored && this.sameSyncedLists(stored, next)) return true;
+
+			this.settings.synced = next;
 			await this.saveSettings();
 			return true;
 		} catch (error) {
 			console.error("[日记模板] 同步列表失败", error);
 			return false;
 		}
+	}
+
+	private sameSyncedLists(a: SyncedLists, b: SyncedLists): boolean {
+		return (
+			a.sourcePath === b.sourcePath &&
+			a.sourceDate === b.sourceDate &&
+			JSON.stringify(a.todo) === JSON.stringify(b.todo) &&
+			JSON.stringify(a.mission ?? []) === JSON.stringify(b.mission ?? []) &&
+			JSON.stringify(a.urgent ?? []) === JSON.stringify(b.urgent ?? [])
+		);
 	}
 
 	private handleModified(file: TAbstractFile): void {
@@ -613,25 +662,31 @@ export default class DailyNoteTemplatePlugin extends Plugin {
 		}
 	}
 
-	/** 在文件末尾补一行（已存在则跳过），返回是否改动 */
+	/** 在文件末尾补一行（已存在则不写盘），返回是否改动 */
 	private async appendToNote(path: string, line: string): Promise<boolean> {
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) return false;
 
-		let changed = false;
+		const current = await this.app.vault.cachedRead(file);
+		if (current.includes(line)) return false;
+
 		await this.app.vault.process(file, (data) => {
 			if (data.includes(line)) return data;
-			changed = true;
 			const base = data.replace(/\s*$/, "");
 			return base ? `${base}\n\n${line}\n` : `${line}\n`;
 		});
-		return changed;
+		return true;
 	}
 
-	/** 在某个标题区块末尾补一行（已存在则跳过） */
+	/** 在某个标题区块末尾补一行（已存在则不写盘） */
 	private async appendToSectionOf(path: string, heading: string, line: string): Promise<void> {
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) return;
+
+		const current = await this.app.vault.cachedRead(file);
+		const next = appendToSection(current, heading, line);
+		if (next === current) return; // 已经在了，不产生一次多余的文件写入
+
 		await this.app.vault.process(file, (data) => appendToSection(data, heading, line));
 	}
 

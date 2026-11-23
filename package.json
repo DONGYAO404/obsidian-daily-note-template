@@ -1,6 +1,6 @@
 {
   "name": "obsidian-daily-note-template",
-  "version": "1.6.0",
+  "version": "1.8.0",
   "private": true,
   "description": "Obsidian 插件：为每个新日记自动套用可编辑的初始模板",
   "author": "陈乔阳",

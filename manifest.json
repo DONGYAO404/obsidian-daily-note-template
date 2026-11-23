@@ -1,10 +1,10 @@
 {
   "id": "daily-note-template",
   "name": "日记模板 Daily Note Template",
-  "version": "1.6.0",
+  "version": "1.8.0",
   "minAppVersion": "1.4.0",
-  "description": "日记模板：自动补建每一天，待办/紧急任务跟随当天日记，并自动维护年、月节点与链接。",
-  "author": "陈乔阳",
+  "description": "日记模板：自动补建每一天，待办/任务/紧急任务跟随当天日记，并自动维护年、月节点与链接。",
+  "author": "Dongyao",
   "authorUrl": "",
   "isDesktopOnly": false
 }

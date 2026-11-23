@@ -29,8 +29,10 @@ function makeContext(overrides = {}) {
 		folder: "日记",
 		todoText: "",
 		missionText: "",
+		urgentText: "",
 		todoHeading: "To-do list",
-		missionHeading: "Urgent mission",
+		missionHeading: "Mission",
+		urgentHeading: "Urgent mission",
 		format: (date, pattern) => moment(date).format(pattern),
 		...overrides,
 	};
@@ -53,14 +55,18 @@ function check(name, fn) {
 
 console.log("模板渲染");
 
-check("默认模板：两个列表落位，光标在末尾", () => {
+check("默认模板：三个列表落位，光标在末尾", () => {
 	const result = renderTemplate(
 		DEFAULT_TEMPLATE,
-		makeContext({ todoText: "- [ ] 喝水", missionText: "- [ ] 作业" })
+		makeContext({
+			todoText: "- [ ] 喝水",
+			missionText: "- [ ] 任务A",
+			urgentText: "- [ ] 作业B",
+		})
 	);
 	assert.equal(
 		result.content,
-		"# To-do list\n- [ ] 喝水\n\n## Urgent mission\n- [ ] 作业\n\n# Exercise\n\n"
+		"# To-do list\n- [ ] 喝水\n\n## Mission\n- [ ] 任务A\n\n## Urgent mission\n- [ ] 作业B\n\n# Exercise\n\n"
 	);
 	assert.equal(result.cursorOffset, result.content.length);
 });
@@ -107,6 +113,38 @@ check("未知变量保持原样", () => {
 check("旧写法 {{daily_tasks}} 仍然映射到待办", () => {
 	const result = renderTemplate("{{daily_tasks}}", makeContext({ todoText: "- [ ] a" }));
 	assert.equal(result.content, "- [ ] a\n");
+});
+
+check("Mission 与 Urgent mission 各自独立解析", () => {
+	const parsed = parseLists(
+		[
+			"# To-do list",
+			"- [ ] t",
+			"## Mission",
+			"- [ ] m1",
+			"- [x] m2",
+			"## Urgent mission",
+			"- [ ] u1",
+			"- [x] u2",
+		].join("\n"),
+		{ todo: "To-do list", mission: "Mission", urgent: "Urgent mission" }
+	);
+	assert.equal(parsed.found.urgent, true);
+	assert.equal(renderItems(parsed.mission, { dropChecked: true }), "- [ ] m1");
+	assert.equal(renderItems(parsed.urgent, { dropChecked: true }), "- [ ] u1");
+});
+
+check("标题名变量跟随设置", () => {
+	const result = renderTemplate(
+		"# {{todo_heading}}\n{{todo_list}}\n\n## {{mission_heading}}\n{{mission_list}}",
+		makeContext({
+			todoHeading: "待办",
+			missionHeading: "紧急任务",
+			todoText: "- [ ] a",
+			missionText: "- [ ] b",
+		})
+	);
+	assert.equal(result.content, "# 待办\n- [ ] a\n\n## 紧急任务\n- [ ] b\n");
 });
 
 console.log("占位符缺失时兜底");
@@ -243,6 +281,30 @@ check("非列表行原样保留", () => {
 		mission: "Urgent mission",
 	});
 	assert.equal(renderItems(parsed.mission, { dropChecked: true }), "- [ ] a\n> 备注一行");
+});
+
+check("不带勾选框的列表项保留原符号与编号", () => {
+	const parsed = parseLists("## Urgent mission\n- [ ] a\n* 星号项\n1. 编号项", {
+		todo: "x",
+		mission: "Urgent mission",
+	});
+	assert.equal(renderItems(parsed.mission), "- [ ] a\n* 星号项\n1. 编号项");
+});
+
+check("段落与空行原样保留", () => {
+	const parsed = parseLists("## Urgent mission\n- [ ] a\n\n说明文字\n\n> 引用", {
+		todo: "x",
+		mission: "Urgent mission",
+	});
+	assert.equal(renderItems(parsed.mission), "- [ ] a\n\n说明文字\n\n> 引用");
+});
+
+check("非标准复选框按普通文本处理", () => {
+	const parsed = parseLists("## Urgent mission\n- [~] 进行中", {
+		todo: "x",
+		mission: "Urgent mission",
+	});
+	assert.equal(renderItems(parsed.mission), "- [~] 进行中");
 });
 
 check("缩进保留", () => {
