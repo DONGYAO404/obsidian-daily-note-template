@@ -1,0 +1,125 @@
+/* 日记模板插件样式 */
+
+.dnt-settings .dnt-hint {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.6;
+	margin: 6px 0 14px;
+}
+
+.dnt-settings .dnt-block {
+	margin: 4px 0 16px;
+}
+
+.dnt-settings .dnt-block-title {
+	font-weight: var(--font-semibold);
+	margin-bottom: 4px;
+}
+
+.dnt-settings .dnt-block-desc {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.6;
+	margin-bottom: 8px;
+}
+
+.dnt-settings textarea.dnt-textarea {
+	width: 100%;
+	min-height: 260px;
+	resize: vertical;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.55;
+	padding: 8px;
+	border-radius: var(--radius-s);
+}
+
+.dnt-settings textarea.dnt-textarea-small {
+	min-height: 120px;
+}
+
+.dnt-settings .dnt-text-wide {
+	width: 320px;
+	max-width: 100%;
+}
+
+.dnt-settings .dnt-number {
+	width: 90px;
+}
+
+.dnt-settings .dnt-actions {
+	border-top: none;
+	padding-top: 0;
+}
+
+.dnt-settings .dnt-path-example {
+	font-family: var(--font-monospace);
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+	padding: 6px 8px;
+}
+
+.dnt-settings .dnt-vars {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 4px 14px;
+	font-size: var(--font-ui-smaller);
+	margin-bottom: 8px;
+}
+
+.dnt-settings .dnt-var {
+	display: contents;
+}
+
+.dnt-settings .dnt-var code {
+	font-family: var(--font-monospace);
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+	padding: 1px 5px;
+	color: var(--text-accent);
+}
+
+.dnt-settings .dnt-var-desc {
+	color: var(--text-muted);
+	line-height: 1.7;
+}
+
+/* 弹窗 */
+
+.dnt-modal .dnt-date-row {
+	margin: 8px 0 12px;
+}
+
+.dnt-modal .dnt-date-input {
+	width: 100%;
+	font-size: var(--font-ui-medium);
+	padding: 6px 8px;
+}
+
+.dnt-modal .dnt-quick-dates {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 16px;
+}
+
+.dnt-modal .dnt-quick-button {
+	font-size: var(--font-ui-smaller);
+}
+
+.dnt-modal .dnt-preview {
+	max-height: 55vh;
+	overflow: auto;
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.6;
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+	padding: 10px;
+}
+
+.dnt-modal .dnt-hint {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
